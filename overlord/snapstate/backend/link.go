@@ -393,7 +393,7 @@ func (b Backend) UnlinkSnap(info *snap.Info, linkCtx LinkContext, meter progress
 		}
 		// inhibit startup of new programs
 		inhibitInfo := runinhibit.InhibitInfo{Previous: info.SnapRevision()}
-		err0 = runinhibit.LockWithHint(info.InstanceName(), hint, inhibitInfo, linkCtx.StateUnlocker)
+		_, err0 = runinhibit.LockWithHint(info.InstanceName(), hint, inhibitInfo, linkCtx.StateUnlocker)
 	}
 
 	// remove generated services, binaries etc

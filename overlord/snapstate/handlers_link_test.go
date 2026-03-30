@@ -1096,7 +1096,7 @@ func (s *linkSnapSuite) TestDoUnlinkSnapCleansUpRunInhibitionOnError(c *C) {
 		if op.op == "unlink-snap" {
 			// first mock the creation of snap inhibition in backend.UnlinkSnap
 			inhibitInfo := runinhibit.InhibitInfo{Previous: si.Revision}
-			err := runinhibit.LockWithHint(si.RealName, runinhibit.HintInhibitedForDisable, inhibitInfo, s.state.Unlocker())
+			_, err := runinhibit.LockWithHint(si.RealName, runinhibit.HintInhibitedForDisable, inhibitInfo, s.state.Unlocker())
 			c.Assert(err, IsNil)
 			// then actually return an error to test the cleanup of the inhibition
 			return fmt.Errorf("error")

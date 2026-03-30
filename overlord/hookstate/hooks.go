@@ -177,7 +177,7 @@ func (h *gateAutoRefreshHookHandler) Before() error {
 	defer lock.Unlock()
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snapRev}
-	if err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedGateRefresh, inhibitInfo, st.Unlocker()); err != nil {
+	if _, err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedGateRefresh, inhibitInfo, st.Unlocker()); err != nil {
 		return err
 	}
 
@@ -254,7 +254,7 @@ func (h *gateAutoRefreshHookHandler) Done() (err error) {
 			if err != nil {
 				return err
 			}
-			if err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedForRefresh, inhibitInfo, nil); err != nil {
+			if _, err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedForRefresh, inhibitInfo, nil); err != nil {
 				return fmt.Errorf("cannot set inhibit lock for snap %s: %v", snapName, err)
 			}
 		}

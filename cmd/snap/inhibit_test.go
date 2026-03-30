@@ -71,7 +71,8 @@ func (s *RunSuite) TestWaitWhileInhibitedRunThrough(c *C) {
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	var waitWhileInhibitedCalled int
 	restore := snaprun.MockWaitWhileInhibited(func(ctx context.Context, snapName string, notInhibited func(ctx context.Context) error, inhibited func(ctx context.Context, hint runinhibit.Hint, inhibitInfo *runinhibit.InhibitInfo) (cont bool, err error), interval time.Duration) (flock *osutil.FileLock, retErr error) {
@@ -130,7 +131,8 @@ func (s *RunSuite) TestWaitWhileInhibitedErrorOnStartNotification(c *C) {
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	var startCalled, finishCalled int
 	inhibitionFlow := fakeInhibitionFlow{
@@ -166,7 +168,8 @@ func (s *RunSuite) TestWaitWhileInhibitedErrorOnFinishNotification(c *C) {
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	var waitWhileInhibitedCalled int
 	restore := snaprun.MockWaitWhileInhibited(func(ctx context.Context, snapName string, notInhibited func(ctx context.Context) error, inhibited func(ctx context.Context, hint runinhibit.Hint, inhibitInfo *runinhibit.InhibitInfo) (cont bool, err error), interval time.Duration) (flock *osutil.FileLock, retErr error) {
@@ -226,7 +229,8 @@ func (s *RunSuite) TestWaitWhileInhibitedContextCancellationOnError(c *C) {
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	originalCtx, cancel := context.WithCancel(context.Background())
 	inhibitionFlow := fakeInhibitionFlow{
@@ -245,7 +249,7 @@ func (s *RunSuite) TestWaitWhileInhibitedContextCancellationOnError(c *C) {
 	restore := snaprun.MockInhibitionFlow(&inhibitionFlow)
 	defer restore()
 
-	_, _, _, err := snaprun.WaitWhileInhibited(originalCtx, snaprun.Client(), "snapname", "app")
+	_, _, _, err = snaprun.WaitWhileInhibited(originalCtx, snaprun.Client(), "snapname", "app")
 	c.Assert(err, ErrorMatches, "context canceled")
 	c.Assert(errors.Is(err, context.Canceled), Equals, true)
 	c.Assert(errors.Is(originalCtx.Err(), context.Canceled), Equals, true)
@@ -259,7 +263,8 @@ func (s *RunSuite) TestWaitWhileInhibitedGateRefreshNoNotification(c *C) {
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedGateRefresh, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedGateRefresh, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	var called int
 	restore := snaprun.MockWaitWhileInhibited(func(ctx context.Context, snapName string, notInhibited func(ctx context.Context) error, inhibited func(ctx context.Context, hint runinhibit.Hint, inhibitInfo *runinhibit.InhibitInfo) (cont bool, err error), interval time.Duration) (flock *osutil.FileLock, retErr error) {
@@ -310,7 +315,8 @@ func (s *RunSuite) testWaitWhileInhibitedRemoveOrDisableInhibition(c *C, svc boo
 	snaptest.MockSnapCurrent(c, string(mockYamlForNameBase("snapname", "")), &snap.SideInfo{Revision: snap.R(11)})
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", hint, inhibitInfo, nil), IsNil)
+	_, err := runinhibit.LockWithHint("snapname", hint, inhibitInfo, nil)
+	c.Assert(err, IsNil)
 
 	inhibitionFlow := fakeInhibitionFlow{
 		start: func(ctx context.Context) error {

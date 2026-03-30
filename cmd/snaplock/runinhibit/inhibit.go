@@ -132,6 +132,12 @@ func removeInhibitInfoFiles(snapName string) error {
 // being nil indicates not to do this.
 type Unlocker func() (relock func())
 
+// RestoreFunc is a function that restores the changes made by an inhibition operation
+// such as LockWithHint.
+// The caller should pass an appropriate Unlocker if the global state is locked when
+// calling restore, or nil if the state is already unlocked.
+type RestoreFunc func(unlocker Unlocker) error
+
 // LockWithHint sets a persistent "snap run" inhibition lock, for the given snap, with a given hint
 // and saves given info that will be needed by "snap run" during inhibition (e.g. snap revision).
 //
@@ -144,7 +150,13 @@ type Unlocker func() (relock func())
 // If unlocker is passed it indicates that the global state needs to be unlocked
 // before taking the inhibition hint file lock. It is the responsibility of the
 // caller to make sure state is locked if a non-nil unlocker is passed.
-func LockWithHint(snapName string, hint Hint, info InhibitInfo, unlocker Unlocker) error {
+//
+// On success, a restore function is returned that, when called, reverses the
+// inhibition by calling Unlock for the same snap. The caller may choose to
+// invoke this restore to make the operation transactional. The unlocker
+// argument is not captured by the restore function, instead the callers must
+// ensure appropriate locking when invoking the restore.
+func LockWithHint(snapName string, hint Hint, info InhibitInfo, unlocker Unlocker) (RestoreFunc, error) {
 	if unlocker != nil {
 		// unlock/relock global state
 		relock := unlocker()
@@ -152,46 +164,49 @@ func LockWithHint(snapName string, hint Hint, info InhibitInfo, unlocker Unlocke
 	}
 
 	if err := hint.validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := info.validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.MkdirAll(InhibitDir, 0755); err != nil {
-		return err
+		return nil, err
 	}
 	flock, err := openHintFileLock(snapName)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer flock.Close()
 
 	// The following order of execution is important to avoid race conditions.
 	// Take the lock
 	if err := flock.Lock(); err != nil {
-		return err
+		return nil, err
 	}
 	// Write inhibit info
 	buf, err := json.Marshal(info)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.WriteFile(InhibitInfoFile(snapName, hint), buf, 0644); err != nil {
-		return err
+		return nil, err
 	}
 	// Write hint
 	f := flock.File()
 	if err := f.Truncate(0); err != nil {
-		return err
+		return nil, err
 	}
 	if _, err = f.WriteString(string(hint)); err != nil {
-		return err
+		return nil, err
 	}
 	if err := f.Sync(); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	restore := func(unlocker Unlocker) error {
+		return Unlock(snapName, unlocker)
+	}
+	return restore, nil
 }
 
 // Unlock truncates the run inhibition lock, for the given snap.

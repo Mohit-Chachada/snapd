@@ -1823,7 +1823,7 @@ func (f *fakeSnappyBackend) RunInhibitSnapForUnlink(info *snap.Info, hint runinh
 	}
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: info.SnapRevision()}
-	if err := runinhibit.LockWithHint(info.InstanceName(), hint, inhibitInfo, stateUnlocker); err != nil {
+	if _, err := runinhibit.LockWithHint(info.InstanceName(), hint, inhibitInfo, stateUnlocker); err != nil {
 		return nil, err
 	}
 

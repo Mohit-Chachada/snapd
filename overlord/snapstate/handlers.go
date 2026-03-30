@@ -3638,7 +3638,8 @@ func (m *SnapManager) doKillSnapApps(t *state.Task, _ *tomb.Tomb) (retErr error)
 	defer perfTimings.Save(st)
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snapsup.Revision()}
-	if err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedForRemove, inhibitInfo, st.Unlocker()); err != nil {
+	unlockInhibit, err := runinhibit.LockWithHint(snapName, runinhibit.HintInhibitedForRemove, inhibitInfo, st.Unlocker())
+	if err != nil {
 		return err
 	}
 
@@ -3647,14 +3648,10 @@ func (m *SnapManager) doKillSnapApps(t *state.Task, _ *tomb.Tomb) (retErr error)
 	st.Unlock()
 	defer st.Lock()
 
-	// Note: The snap hint lock file is completely removed in “discard-snap”
-	// so we only need to unlock it in case of an error here or during undo.
 	defer func() {
-		// Unlock snap inhibition if anything goes wrong afterwards to
-		// avoid keeping the snap stuck at this inhibited state.
 		if retErr != nil {
 			// state is unlocked, it is okay to pass nil here
-			runinhibit.Unlock(snapName, nil)
+			unlockInhibit(nil)
 		}
 	}()
 

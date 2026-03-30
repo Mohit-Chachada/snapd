@@ -318,7 +318,8 @@ func (s *RunSuite) TestSnapRunAppRunsChecksRefreshInhibitionLock(c *check.C) {
 	defer restorer()
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R("x2")}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), check.IsNil)
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
@@ -358,14 +359,15 @@ func (s *RunSuite) TestSnapRunAppRunsChecksRefreshInhibitionLock(c *check.C) {
 
 func (s *RunSuite) testSnapRunAppRunsChecksInhibitionLock(c *check.C, svc bool, hint runinhibit.Hint, errMsg string) {
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(11)}
-	c.Assert(runinhibit.LockWithHint("snapname", hint, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", hint, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 
 	cmd := "snapname.app"
 	if svc {
 		cmd = "snapname.svc"
 	}
 
-	_, err := snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--", cmd, "--arg1"})
+	_, err = snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--", cmd, "--arg1"})
 	c.Assert(err, check.ErrorMatches, errMsg)
 }
 
@@ -410,12 +412,13 @@ func (s *RunSuite) TestSnapRunAppRefreshAppAwarenessUnsetSkipsInhibitionLockWait
 
 	// mark snap as inhibited
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R("x2")}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), check.IsNil)
 	// unset refresh-app-awareness flag
 	c.Assert(os.RemoveAll(features.RefreshAppAwareness.ControlFile()), check.IsNil)
 
-	_, err := snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--", "snapname.app", "--arg1"})
+	_, err = snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--", "snapname.app", "--arg1"})
 	c.Assert(err, check.ErrorMatches, `cannot run "snapname.app", snap is being refreshed`)
 }
 
@@ -434,7 +437,8 @@ func (s *RunSuite) TestSnapRunAppNewRevisionAfterInhibition(c *check.C) {
 
 	// mark snap as inhibited
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R("x2")}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 	// unset refresh-app-awareness flag
 	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), check.IsNil)
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
@@ -553,12 +557,13 @@ func (s *RunSuite) TestSnapRunHookNoRuninhibit(c *check.C) {
 	defer restore()
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R(42)}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), check.IsNil)
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
 	// Run a hook from the active revision
-	_, err := snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--hook=configure", "--", "snapname"})
+	_, err = snaprun.Parser(snaprun.Client()).ParseArgs([]string{"run", "--hook=configure", "--", "snapname"})
 	c.Assert(err, check.IsNil)
 	c.Check(execArg0, check.Equals, filepath.Join(dirs.DistroLibExecDir, "snap-confine"))
 	c.Check(execArgs, check.DeepEquals, []string{
@@ -587,7 +592,8 @@ func (s *RunSuite) TestSnapRunAppRuninhibitSkipsServices(c *check.C) {
 	defer restorer()
 
 	inhibitInfo := runinhibit.InhibitInfo{Previous: snap.R("x2")}
-	c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil), check.IsNil)
+	_, err := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, inhibitInfo, nil)
+	c.Assert(err, check.IsNil)
 	c.Assert(os.MkdirAll(dirs.FeaturesDir, 0755), check.IsNil)
 	c.Assert(os.WriteFile(features.RefreshAppAwareness.ControlFile(), []byte(nil), 0644), check.IsNil)
 
@@ -773,7 +779,8 @@ func (s *RunSuite) testSnapRunAppRetryNoInhibitHintFileThenOngoingRefresh(c *che
 			// mock snap inhibited to trigger race condition detection
 			// i.e. we started without a hint lock file (snap on first install)
 			// then a refresh started which created the hint lock file.
-			c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil), check.IsNil)
+			_, err = runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil)
+			c.Assert(err, check.IsNil)
 
 			// nil FileLock means no inhibit file exists
 			return nil, nil
@@ -902,7 +909,8 @@ func (s *RunSuite) testSnapRunAppRetryNoInhibitHintFileThenOngoingRemoveOrDisabl
 		// mock snap inhibited to trigger race condition detection
 		// i.e. we started without a hint lock file (snap on first install)
 		// then a remove or disable started which created the hint lock file.
-		c.Assert(runinhibit.LockWithHint("snapname", hint, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil), check.IsNil)
+		_, err = runinhibit.LockWithHint("snapname", hint, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil)
+		c.Assert(err, check.IsNil)
 
 		// nil FileLock means no inhibit file exists
 		return nil, nil
@@ -1028,7 +1036,8 @@ func (s *RunSuite) TestSnapRunAppRetryNoInhibitHintFileThenOngoingRefreshMissing
 			// and we have an ongoing refresh which removed current symlink.
 			c.Assert(err, testutil.ErrorIs, snaprun.ErrSnapRefreshConflict)
 			// and created the inhibition hint lock file.
-			c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil), check.IsNil)
+			_, lockErr := runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil)
+			c.Assert(lockErr, check.IsNil)
 			return nil, err
 		} else {
 			var err error
@@ -1127,7 +1136,8 @@ func (s *RunSuite) TestSnapRunAppMaxRetry(c *check.C) {
 		// mock snap inhibited to trigger race condition detection
 		// i.e. we started without a hint lock file (snap on first install)
 		// then a refresh started which created the hint lock file.
-		c.Assert(runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil), check.IsNil)
+		_, err = runinhibit.LockWithHint("snapname", runinhibit.HintInhibitedForRefresh, runinhibit.InhibitInfo{Previous: snap.R("x2")}, nil)
+		c.Assert(err, check.IsNil)
 
 		// nil FileLock means no inhibit file exists
 		return nil, nil
