@@ -66,8 +66,11 @@ func removeMountUnit(mountDir string, meter progress.Meter) error {
 
 func (b Backend) RemoveContainerMountUnits(s snap.ContainerPlaceInfo, meter progress.Meter) error {
 	sysd := systemd.New(systemd.SystemMode, meter)
-	originFilter := ""
-	mountPoints, err := sysd.ListMountUnits(s.ContainerName(), originFilter)
+	// Use the filesystem-based scan so that units that were stopped and
+	// disabled by an earlier removal step — and subsequently evicted from
+	// systemd's in-memory state by a daemon-reload — are discovered and
+	// removed by their on-disk unit files rather than via systemctl show.
+	mountPoints, err := sysd.ListMountUnitFiles(s.ContainerName(), "")
 	if err != nil {
 		return err
 	}

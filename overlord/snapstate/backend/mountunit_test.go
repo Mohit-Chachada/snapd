@@ -70,6 +70,9 @@ type FakeSystemd struct {
 	ListMountUnitsCalls  []ParamsForListMountUnits
 	ListMountUnitsResult ResultForListMountUnits
 
+	ListMountUnitFilesCalls  []ParamsForListMountUnitFiles
+	ListMountUnitFilesResult ResultForListMountUnitFiles
+
 	StopCalls  []ParamsForStop
 	StopResult error
 
@@ -114,6 +117,21 @@ func (s *FakeSystemd) ListMountUnits(snapName, origin string) ([]string, error) 
 	s.ListMountUnitsCalls = append(s.ListMountUnitsCalls,
 		ParamsForListMountUnits{snapName, origin})
 	return s.ListMountUnitsResult.mountPoints, s.ListMountUnitsResult.err
+}
+
+type ParamsForListMountUnitFiles struct {
+	snapName, origin string
+}
+
+type ResultForListMountUnitFiles struct {
+	mountPoints []string
+	err         error
+}
+
+func (s *FakeSystemd) ListMountUnitFiles(snapName, origin string) ([]string, error) {
+	s.ListMountUnitFilesCalls = append(s.ListMountUnitFilesCalls,
+		ParamsForListMountUnitFiles{snapName, origin})
+	return s.ListMountUnitFilesResult.mountPoints, s.ListMountUnitFilesResult.err
 }
 
 type ParamsForStop struct {
@@ -233,7 +251,7 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsFailOnList(c *C) {
 	var sysd *FakeSystemd
 	restore := systemd.MockNewSystemd(func(be systemd.Backend, roodDir string, mode systemd.InstanceMode, meter systemd.Reporter) systemd.Systemd {
 		sysd = &FakeSystemd{}
-		sysd.ListMountUnitsResult = ResultForListMountUnits{nil, expectedErr}
+		sysd.ListMountUnitFilesResult = ResultForListMountUnitFiles{nil, expectedErr}
 		return sysd
 	})
 	defer restore()
@@ -241,8 +259,8 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsFailOnList(c *C) {
 	b := backend.Backend{}
 	err := b.RemoveContainerMountUnits(info, progress.Null)
 	c.Check(err, Equals, expectedErr)
-	c.Check(sysd.ListMountUnitsCalls, HasLen, 1)
-	c.Check(sysd.ListMountUnitsCalls, DeepEquals, []ParamsForListMountUnits{
+	c.Check(sysd.ListMountUnitFilesCalls, HasLen, 1)
+	c.Check(sysd.ListMountUnitFilesCalls, DeepEquals, []ParamsForListMountUnitFiles{
 		{snapName: "foo", origin: ""},
 	})
 	c.Check(sysd.RemoveMountUnitFileCalls, HasLen, 0)
@@ -264,7 +282,7 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsFailOnRemoval(c *C) {
 	var sysd *FakeSystemd
 	restore := systemd.MockNewSystemd(func(be systemd.Backend, roodDir string, mode systemd.InstanceMode, meter systemd.Reporter) systemd.Systemd {
 		sysd = &FakeSystemd{}
-		sysd.ListMountUnitsResult = ResultForListMountUnits{returnedMountPoints, nil}
+		sysd.ListMountUnitFilesResult = ResultForListMountUnitFiles{returnedMountPoints, nil}
 		sysd.RemoveMountUnitFileResult = expectedErr
 		return sysd
 	})
@@ -273,8 +291,8 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsFailOnRemoval(c *C) {
 	b := backend.Backend{}
 	err := b.RemoveContainerMountUnits(info, progress.Null)
 	c.Check(err, Equals, expectedErr)
-	c.Check(sysd.ListMountUnitsCalls, HasLen, 1)
-	c.Check(sysd.ListMountUnitsCalls, DeepEquals, []ParamsForListMountUnits{
+	c.Check(sysd.ListMountUnitFilesCalls, HasLen, 1)
+	c.Check(sysd.ListMountUnitFilesCalls, DeepEquals, []ParamsForListMountUnitFiles{
 		{snapName: "foo", origin: ""},
 	})
 
@@ -297,7 +315,7 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsHappy(c *C) {
 	var sysd *FakeSystemd
 	restore := systemd.MockNewSystemd(func(be systemd.Backend, roodDir string, mode systemd.InstanceMode, meter systemd.Reporter) systemd.Systemd {
 		sysd = &FakeSystemd{}
-		sysd.ListMountUnitsResult = ResultForListMountUnits{returnedMountPoints, nil}
+		sysd.ListMountUnitFilesResult = ResultForListMountUnitFiles{returnedMountPoints, nil}
 		sysd.RemoveMountUnitFileResult = nil
 		return sysd
 	})
@@ -306,8 +324,8 @@ func (s *mountunitSuite) TestRemoveSnapMountUnitsHappy(c *C) {
 	b := backend.Backend{}
 	err := b.RemoveContainerMountUnits(info, progress.Null)
 	c.Check(err, IsNil)
-	c.Check(sysd.ListMountUnitsCalls, HasLen, 1)
-	c.Check(sysd.ListMountUnitsCalls, DeepEquals, []ParamsForListMountUnits{
+	c.Check(sysd.ListMountUnitFilesCalls, HasLen, 1)
+	c.Check(sysd.ListMountUnitFilesCalls, DeepEquals, []ParamsForListMountUnitFiles{
 		{snapName: "foo", origin: ""},
 	})
 

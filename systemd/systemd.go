@@ -460,6 +460,11 @@ type Systemd interface {
 	// ListMountUnits gets the list of targets of the mount units created by
 	// the `origin` module for the given snap
 	ListMountUnits(snapName, origin string) ([]string, error)
+	// ListMountUnitFiles is like ListMountUnits but scans unit files on disk
+	// rather than querying systemd's in-memory state. It therefore also finds
+	// units that were stopped/disabled and evicted from systemd's memory by a
+	// daemon-reload.
+	ListMountUnitFiles(snapName, origin string) ([]string, error)
 	// Mask the given service.
 	Mask(service string) error
 	// Unmask the given service.
@@ -1692,12 +1697,13 @@ func extractOriginModule(systemdUnitPath string) (string, error) {
 	return originModule, nil
 }
 
-func (s *systemd) ListMountUnits(snapName, origin string) ([]string, error) {
-	out, err := s.systemctl("show", "--property=Description,Where,FragmentPath", "*.mount")
-	if err != nil {
-		return nil, err
-	}
-
+// parseMountShowOutput parses the output of
+//
+//	systemctl show --property=Description,Where,FragmentPath <units...>
+//
+// returning the Where= value for every unit that belongs to snapName and whose
+// X-SnapdOrigin= field matches origin (empty origin = any).
+func parseMountShowOutput(out []byte, snapName, origin string) ([]string, error) {
 	var mountPoints []string
 	if bytes.TrimSpace(out) == nil {
 		return mountPoints, nil
@@ -1754,6 +1760,59 @@ func (s *systemd) ListMountUnits(snapName, origin string) ([]string, error) {
 		mountPoints = append(mountPoints, where)
 	}
 	return mountPoints, nil
+}
+
+// ListMountUnitFiles queries systemd for all installed .mount unit files and
+// returns the mount-point (Where=) of those belonging to snapName.
+// Unlike ListMountUnits, it uses list-unit-files to enumerate unit files
+// directly from systemd's unit search path (including /run/systemd/system/
+// for transient units), and then shows each file by its specific name rather
+// than via the *.mount glob.  The glob only matches units currently held in
+// systemd's in-memory state, whereas specific names cause systemd to read each
+// file from disk — so this method also finds units that were disabled and
+// evicted from systemd's memory by a daemon-reload.
+func (s *systemd) ListMountUnitFiles(snapName, origin string) ([]string, error) {
+	out, err := s.systemctl("list-unit-files", "--plain", "--full", "--no-legend", "*.mount")
+	if err != nil {
+		return nil, err
+	}
+
+	var unitNames []string
+	for _, line := range bytes.Split(bytes.TrimSpace(out), []byte("\n")) {
+		line = bytes.TrimSpace(line)
+		if len(line) == 0 {
+			continue
+		}
+		// output format: "<unit-name>  <state>  <vendor-preset>"
+		fields := strings.Fields(string(line))
+		if len(fields) == 0 || !strings.HasSuffix(fields[0], ".mount") {
+			continue
+		}
+		unitNames = append(unitNames, fields[0])
+	}
+
+	if len(unitNames) == 0 {
+		return nil, nil
+	}
+
+	// Show specific unit names rather than the *.mount glob.  Providing
+	// concrete names causes systemd to load each unit from disk rather than
+	// scanning its in-memory loaded-unit list, so this works for units that
+	// have been stopped, disabled, and daemon-reload'd out of systemd's memory.
+	args := append([]string{"show", "--property=Description,Where,FragmentPath"}, unitNames...)
+	out, err = s.systemctl(args...)
+	if err != nil {
+		return nil, err
+	}
+	return parseMountShowOutput(out, snapName, origin)
+}
+
+func (s *systemd) ListMountUnits(snapName, origin string) ([]string, error) {
+	out, err := s.systemctl("show", "--property=Description,Where,FragmentPath", "*.mount")
+	if err != nil {
+		return nil, err
+	}
+	return parseMountShowOutput(out, snapName, origin)
 }
 
 func (s *systemd) ReloadOrRestart(serviceNames []string) error {

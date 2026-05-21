@@ -2821,6 +2821,87 @@ X-SnapdOrigin=%s
 	c.Check(err, IsNil)
 }
 
+func (s *SystemdTestSuite) TestListMountUnitFilesEmpty(c *C) {
+	// When list-unit-files returns no .mount units we return empty without
+	// making the second (show) systemctl call.
+	s.outs = [][]byte{
+		[]byte("\n"),
+	}
+	sysd := New(SystemMode, nil)
+	units, err := sysd.ListMountUnitFiles("some-snap", "")
+	c.Check(units, HasLen, 0)
+	c.Check(err, IsNil)
+	// only the list-unit-files call was made (s.i advanced once)
+	c.Check(s.i, Equals, 1)
+}
+
+func (s *SystemdTestSuite) TestListMountUnitFilesHappy(c *C) {
+	tmpDir, err := os.MkdirTemp("/tmp", "snapd-systemd-test-list-mount-files-*")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(tmpDir)
+
+	// listOutput mocks `systemctl list-unit-files --plain --full --no-legend *.mount`
+	// showOutput mocks `systemctl show --property=Description,Where,FragmentPath <names>`
+	var listOutput string
+	var showOutput string
+	createFakeUnit := func(fileName, snapName, where, origin string) error {
+		path := filepath.Join(tmpDir, fileName)
+		if len(listOutput) > 0 {
+			listOutput += "\n"
+		}
+		listOutput += fmt.Sprintf("%s enabled -", fileName)
+		if len(showOutput) > 0 {
+			showOutput += "\n\n"
+		}
+		showOutput += fmt.Sprintf(`Description=Mount unit for %s, revision x1
+Where=%s
+FragmentPath=%s
+`, snapName, where, path)
+		contents := fmt.Sprintf(`[Unit]
+Description=Mount unit for %s, revision x1
+
+[Mount]
+What=/does/not/matter
+Where=%s
+Type=doesntmatter
+Options=do,not,matter,either
+
+[Install]
+WantedBy=doesntmatter.target
+X-SnapdOrigin=%s
+`, snapName, where, origin)
+		return os.WriteFile(path, []byte(contents), 0644)
+	}
+
+	c.Assert(createFakeUnit("somepath-somedir.mount", "some-snap", "/somepath/somedir", "module1"), IsNil)
+	c.Assert(createFakeUnit("somewhere-here.mount", "some-other-snap", "/somewhere/here", "module2"), IsNil)
+	c.Assert(createFakeUnit("somewhere-there.mount", "some-snap", "/somewhere/there", "module3"), IsNil)
+
+	sysd := New(SystemMode, nil)
+
+	// First: all units for some-snap, no origin filter.
+	// s.outs[0] = list-unit-files output, s.outs[1] = show output.
+	s.outs = [][]byte{[]byte(listOutput), []byte(showOutput)}
+	units, err := sysd.ListMountUnitFiles("some-snap", "")
+	c.Check(units, DeepEquals, []string{"/somepath/somedir", "/somewhere/there"})
+	c.Check(err, IsNil)
+
+	// Second: filter by origin; reset the output iterator.
+	s.i = 0
+	units, err = sysd.ListMountUnitFiles("some-snap", "module3")
+	c.Check(units, DeepEquals, []string{"/somewhere/there"})
+	c.Check(err, IsNil)
+}
+
+func (s *SystemdTestSuite) TestListMountUnitFilesListError(c *C) {
+	// An error from the list-unit-files call is propagated; no show call is made.
+	s.errors = []error{fmt.Errorf("list-unit-files failed")}
+	sysd := New(SystemMode, nil)
+	_, err := sysd.ListMountUnitFiles("some-snap", "")
+	c.Check(err, ErrorMatches, ".*list-unit-files failed.*")
+	c.Check(s.i, Equals, 1)
+}
+
 func (s *SystemdTestSuite) TestMountHappy(c *C) {
 	sysd := New(SystemMode, nil)
 
