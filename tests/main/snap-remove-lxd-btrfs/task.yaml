@@ -1,20 +1,19 @@
-summary: snap remove LXD fails when LXD uses the btrfs storage driver
+summary: snap remove LXD succeeds when LXD uses the btrfs storage driver
 
 details: |
-    Tests that "snap remove --purge lxd" fails when /var/snap is on
-    a btrfs filesystem and LXD is configured with the btrfs storage driver.
+    Tests that "snap remove --purge lxd" succeeds when /var/snap is on a
+    btrfs filesystem and LXD is configured with the btrfs storage driver.
 
     LXD stores its pool and cached images as btrfs subvolumes under
-    /var/snap/lxd/common/lxd/storage-pools/<pool>/. The "clear-snap" task
-    is unable to remove the subvolumes.
+    /var/snap/lxd/common/lxd/storage-pools/<pool>/. snapd uses
+    osutil.RemoveAllBtrfs which deletes btrfs subvolumes deepest-first via
+    BTRFS_IOC_SNAP_DESTROY before falling back to os.RemoveAll.
 
     The test mounts /var/snap on a loopback btrfs image. The mount is at
     /var/snap (instead of /var/snap/lxd) as snap removal fails if there are
     any non-snapctl mounts at or under /var/snap/<name>.
 
     Reference: https://forum.snapcraft.io/t/unable-to-remove-lxd-read-only-file-system/16511
-    
-    Update this test when the underlying issue is handled.
 
 # autopkgtest run only a subset of tests that deals with the integration
 # with the distro
@@ -169,8 +168,7 @@ execute: |
     echo "LXD should have created at least one btrfs subvolume under $BTRFS_MNT"
     test "$(btrfs subvolume list -o "$BTRFS_MNT" 2>/dev/null | wc -l)" -gt 0
 
-    echo "Check that LXD removal fails due to subvolumes under storage-pools"
-    not snap remove --purge lxd 2>stderr.out
-    cat stderr.out
-    MATCH "Remove data for snap \"lxd\".*$POOL_BASE/.* (read-only file system|directory not empty|operation not permitted)" < stderr.out
-    echo "Successfully reproduced the issue"
+    echo "snap remove --purge lxd must succeed despite btrfs subvolumes"
+    snap remove --purge lxd
+    not snap list lxd 2>/dev/null
+    test ! -d /var/snap/lxd

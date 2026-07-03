@@ -65,7 +65,7 @@ func (b Backend) RemoveSnapSaveData(snapInfo *snap.Info, dev snap.Device) error 
 	} else if err != nil {
 		return err
 	}
-	return os.RemoveAll(saveDir)
+	return osutil.RemoveAllBtrfs(saveDir)
 }
 
 // RemoveSnapDataDir removes base snap data directories
@@ -143,7 +143,7 @@ func (b Backend) untrashData(snap *snap.Info, opts *dirs.SnapDirOptions) error {
 
 func removeDirs(dirs []string) error {
 	for _, dir := range dirs {
-		if err := os.RemoveAll(dir); err != nil {
+		if err := osutil.RemoveAllBtrfs(dir); err != nil {
 			return err
 		}
 	}
